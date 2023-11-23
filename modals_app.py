@@ -133,8 +133,3 @@ def view_submission(ack, body, client, view, logger):
 if __name__ == "__main__":
     handler = SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"])
     handler.start()
-
-# pip install slack_bolt
-# export SLACK_SIGNING_SECRET=***
-# export SLACK_BOT_TOKEN=xoxb-***
-# python modals_app.py
