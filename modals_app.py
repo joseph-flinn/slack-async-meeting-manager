@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 
@@ -19,19 +20,21 @@ def log_request(logger, body, next):
 
 @app.command("/samm")
 def handle_command(body, ack, respond, client, logger):
-    logger.info(body)
-    logger.info(body['channel_id'])
     ack()
+
+    metadata = {
+        'channel_id': body['channel_id'],
+    }
 
     res = client.views_open(
         trigger_id=body["trigger_id"],
         view={
             "type": "modal",
             "callback_id": "create-meeting",
-            "private_metadata": body['channel_id'],
+            "private_metadata": json.dumps(metadata),
             "title": {
                 "type": "plain_text",
-                "text": "My App",
+                "text": "New Async Meeting",
             },
             "submit": {
                 "type": "plain_text",
@@ -53,12 +56,50 @@ def handle_command(body, ack, respond, client, logger):
                 },
                 {
                     "type": "input",
-                    "block_id": "input_data",
-                    "label": {"type": "plain_text", "text": "Data"},
+                    "block_id": "input_required",
+                    "label": {"type": "plain_text", "text": "Required"},
+                    "element": {
+                        "type": "multi_users_select",
+                        "action_id": "required"
+                    },
+                },
+                {
+                    "type": "input",
+                    "block_id": "input_optional",
+                    "label": {"type": "plain_text", "text": "Optional"},
+                    "element": {
+                        "type": "multi_users_select",
+                        "action_id": "optional"
+                    },
+                    "optional": True,
+                },
+                {
+                    "type": "input",
+                    "block_id": "input_agenda",
+                    "label": {"type": "plain_text", "text": "Agenda"},
                     "element": {
                         "type": "plain_text_input",
-                        "action_id": "data",
+                        "action_id": "agenda",
                         "multiline": True
+                    },
+                },
+                {
+                    "type": "input",
+                    "block_id": "input_end",
+                    "label": {"type": "plain_text", "text": "Meeting End"},
+                    "element": {
+                        "type": "datetimepicker",
+                        "action_id": "end"
+                    },
+                },
+                {
+                    "type": "input",
+                    "block_id": "input_reminder",
+                    "label": {"type": "plain_text", "text": "Reminder Frequency (Hours)"},
+                    "element": {
+                        "type": "number_input",
+                        "is_decimal_allowed": False,
+                        "action_id": "reminder"
                     },
                 },
             ],
@@ -72,15 +113,21 @@ def view_submission(ack, body, client, view, logger):
     ack()
     logger.info(body)
 
-    channel_id = body['view']['private_metadata']
+    metadata = json.loads(body['view']['private_metadata'])
 
-    name = view['state']['values']['input_name']['name']['value']
-    data = view['state']['values']['input_data']['data']['value']
+    modal_data = {
+        'name': view['state']['values']['input_name']['name']['value'],
+        'required' : view['state']['values']['input_required']['required']['selected_users'],
+        'optional': view['state']['values']['input_optional']['optional']['selected_users'],
+        'agenda': view['state']['values']['input_agenda']['agenda']['value'],
+        'reminder': view['state']['values']['input_reminder']['reminder']['value'],
+        'end': view['state']['values']['input_end']['end']['selected_date_time']
+    }
 
-    msg = f'\n  name: {name}\n  data: {data}\n  channel_id: {channel_id}'
+    msg = f'{json.dumps(modal_data, indent=2)}'
     logger.info(msg)
 
-    client.chat_postMessage(channel=channel_id, text=msg)
+    client.chat_postMessage(channel=metadata['channel_id'], text=msg)
 
 
 if __name__ == "__main__":
