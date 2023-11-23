@@ -1,1 +1,1 @@
-# slack-async-meeting-manager
+# slack-async-meeting-manager (samm)
