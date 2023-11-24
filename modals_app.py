@@ -140,15 +140,37 @@ def view_submission(ack, body, client, view, logger):
     logger.info(msg)
 
     response = client.chat_postMessage(channel=metadata['channel_id'], text=msg)
-
     logger.info(response)
-    modal_data = {
+
+    meeting_data = {
         'channel': response['channel'],
         'ts': response['ts'],
         'bot_id': response['message']['bot_id'],
+        'reactions': [],
         **modal_data
     }
-    meetings_store.insert_one(modal_data)
+    meetings_store.insert_one(meeting_data)
+
+
+@app.event("reaction_added")
+def handle_reaction_added(event, say, logger):
+    logger.info(event)
+
+    event_data = {
+        'user': event['user'],
+        'reaction': event['reaction'],
+        'channel': event['item']['channel'],
+        'ts': event['item']['ts']
+    }
+
+    meeting_query = {"channel": event_data['channel'], "ts": event_data['ts']}
+    meeting = meetings_store.find_one(meeting_query)
+
+    logger.info(meeting)
+
+    if event_data['reaction'] == 'white_check_mark' and event_data['user'] not in meeting['reactions']:
+        update_query = {"$push": {"reactions": event_data['user']}}
+        meetings_store.update_one(meeting_query, update_query)
 
 
 @atexit.register
