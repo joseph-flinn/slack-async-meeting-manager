@@ -1,15 +1,26 @@
+import atexit
 import json
 import logging
 import os
 
 from dotenv import load_dotenv
+from pymongo import MongoClient
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 logging.basicConfig(level=logging.DEBUG)
 load_dotenv()
 
-app = App(token=os.environ["SLACK_BOT_TOKEN"])
+client = MongoClient(
+    host=os.environ.get('MONGO_HOST', 'localhost'),
+    username=os.environ.get('MONGO_USERNAME', 'default'),
+    password=os.environ.get('MONGO_PASSWORD', 'SECRET')
+)
+
+db = client[os.environ.get('MONGO_DATABASE', 'test')]
+meetings_store = db.meetings
+
+app = App(token=os.environ.get('SLACK_BOT_TOKEN', 'SECRET'))
 
 
 @app.middleware  # or app.use(log_request)
@@ -99,6 +110,7 @@ def handle_command(body, ack, respond, client, logger):
                     "element": {
                         "type": "number_input",
                         "is_decimal_allowed": False,
+                        "initial_value": os.environ.get("SAMM_DEFAULT_REMINDER_PERIOD", "33"),
                         "action_id": "reminder"
                     },
                 },
@@ -127,7 +139,21 @@ def view_submission(ack, body, client, view, logger):
     msg = f'{json.dumps(modal_data, indent=2)}'
     logger.info(msg)
 
-    client.chat_postMessage(channel=metadata['channel_id'], text=msg)
+    response = client.chat_postMessage(channel=metadata['channel_id'], text=msg)
+
+    logger.info(response)
+    modal_data = {
+        'channel': response['channel'],
+        'ts': response['ts'],
+        'bot_id': response['message']['bot_id'],
+        **modal_data
+    }
+    meetings_store.insert_one(modal_data)
+
+
+@atexit.register
+def cleanup():
+    client.close()
 
 
 if __name__ == "__main__":

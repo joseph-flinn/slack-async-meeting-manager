@@ -1,0 +1,24 @@
+services:
+  slack-app:
+    build:
+      context: .
+    env_file:
+      - .env
+
+  mongo-server:
+    image: mongo:latest
+    volumes:
+      - ./mongo:/docker-entrypoint-initdb.d
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+      MONGO_INITDB_ROOT_DATABASE: ${MONGO_DATABASE}
+
+  mongo-client:
+    image: mongo:latest
+    command: >
+      mongosh --host ${MONGO_HOST}
+        -u ${MONGO_USERNAME}
+        -p ${MONGO_PASSWORD}
+        --authenticationDatabase admin
+        ${MONGO_DATABASE}
