@@ -23,10 +23,10 @@ meetings_store = db.meetings
 app = App(token=os.environ.get('SLACK_BOT_TOKEN', 'SECRET'))
 
 
-@app.middleware  # or app.use(log_request)
-def log_request(logger, body, next):
-    logger.debug(body)
-    return next()
+#@app.middleware  # or app.use(log_request)
+#def log_request(logger, body, next):
+#    logger.debug(body)
+#    return next()
 
 
 @app.command("/samm")
@@ -146,7 +146,8 @@ def view_submission(ack, body, client, view, logger):
         'channel': response['channel'],
         'ts': response['ts'],
         'bot_id': response['message']['bot_id'],
-        'reactions': [],
+        'responses': [],
+        'finished': False,
         **modal_data
     }
     meetings_store.insert_one(meeting_data)
@@ -168,9 +169,44 @@ def handle_reaction_added(event, say, logger):
 
     logger.info(meeting)
 
-    if event_data['reaction'] == 'white_check_mark' and event_data['user'] not in meeting['reactions']:
-        update_query = {"$push": {"reactions": event_data['user']}}
-        meetings_store.update_one(meeting_query, update_query)
+    if (
+        not meeting['finished'] and
+        event_data['reaction'] == 'white_check_mark' and
+        event_data['user'] in meeting['required'] and
+        event_data['user'] not in meeting['responses']
+    ):
+        meetings_store.update_one(meeting_query, {"$push": {"responses": event_data['user']}})
+
+        if set(meeting['required']) == set([event_data['user'], *meeting['responses']]):
+            meetings_store.update_one(meeting_query, {"$set": {"finished": True}})
+
+
+@app.event("message")
+def handle_message(event, logger):
+    if event.get('thread_ts', None):
+        logger.info(event)
+
+        message_data = {
+            'user': event['user'],
+            'ts': event['ts'],
+            'thread_ts': event.get('thread_ts', None),
+            'channel': event['channel']
+        }
+
+        logger.info(json.dumps(message_data, indent=2))
+
+        meeting_query = {"channel": message_data['channel'], "ts": message_data['thread_ts']}
+        meeting = meetings_store.find_one(meeting_query)
+
+        if (
+            not meeting['finished'] and
+            message_data['user'] in meeting['required'] and
+            message_data['user'] not in meeting['responses']
+        ):
+            meetings_store.update_one(meeting_query, {"$push": {"responses": message_data['user']}})
+
+            if set(meeting['required']) == set([message_data['user'], *meeting['responses']]):
+                meetings_store.update_one(meeting_query, {"$set": {"finished": True}})
 
 
 @atexit.register
