@@ -32,9 +32,9 @@ USER me
 
 # Install application into container
 #COPY src ./src
-COPY modals_app.py .
+COPY app.py .
 
 # Run the application
 #CMD ["uvicorn", "src.app:app", "--host", "0.0.0.0", "--port", "8080"]
 #CMD ["uvicorn", "src.app:app", "--host", "127.0.0.1", "--port", "8080"]
-CMD ["python", "modals_app.py"]
+CMD ["python", "app.py"]

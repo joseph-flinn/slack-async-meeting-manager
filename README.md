@@ -10,7 +10,14 @@
 nix-shell
 pipenv shell
 
-python modals_app.py
+
+# Shell 1
+docker compose run -d mongo-server
+docker compose run slack-app
+
+# Shell 2
+docker compose run mongo-client
+
 ```
 
 

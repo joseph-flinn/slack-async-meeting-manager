@@ -9,6 +9,7 @@ services:
     image: mongo:latest
     volumes:
       - ./mongo:/docker-entrypoint-initdb.d
+      - mongo-data:/data/db
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
@@ -22,3 +23,6 @@ services:
         -p ${MONGO_PASSWORD}
         --authenticationDatabase admin
         ${MONGO_DATABASE}
+
+volumes:
+  mongo-data:
